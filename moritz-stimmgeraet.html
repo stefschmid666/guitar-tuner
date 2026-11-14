@@ -79,6 +79,12 @@
 
 <!-- 3. Stimmen -->
 <section id="s3" class="hidden">
+  <div class="row" style="align-items:center;margin-bottom:8px">
+    <button class="ghost" id="backSong" style="flex:0 0 auto;width:auto;padding:10px 14px">← Lied wählen</button>
+    <div id="songInfo" style="flex:1;text-align:right;font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+  </div>
+  <p id="capo3" class="mut" style="margin:0 0 8px"></p>
+  <p id="micErr3" style="color:var(--bad);margin:0 0 8px"></p>
   <div class="tuning" id="tview2"></div>
   <div class="card">
     <div class="stepTitle" id="stepTitle"></div>
@@ -180,9 +186,13 @@ function choose(key,s){
   $("tname").textContent="Stimmung: "+tuning.name;
   renderTuning($("tview"));
   const capo=s&&s[3]?"Danach Kapodaster in den "+s[3]+". Bund setzen (erst NACH dem Stimmen).":"";
-  $("capo").textContent=capo; $("doneCapo").textContent=capo;
-  show("s2");
+  $("capo").textContent=capo; $("doneCapo").textContent=capo; $("capo3").textContent=capo?"🎸 "+capo:"";
+  $("songInfo").textContent=(s?s[0]+" · ":"")+tuning.name;
+  show("s3"); startStep();
+  $("micErr3").textContent="";
+  startMic().catch(e=>{$("micErr3").textContent="Das Mikrofon geht nicht. Bitte im Browser erlauben und die Seite neu laden. ("+e.name+")";});
 }
+$("backSong").onclick=()=>{stopMic();show("s1");};
 $("back1").onclick=()=>show("s1");
 $("newSong").onclick=()=>{stopMic();show("s1");};
 
@@ -282,7 +292,7 @@ function drawHead(){
   g+=`<text x="${cx}" y="${iy+54}" font-size="15" font-weight="800" fill="${st==='pluck'?'#9fb0bf':(st==='ok'?GRN:'#fff')}" text-anchor="middle">${lbl}</text>`;
   // Senkrechte Stimm-Anzeige
   const gBot=oy+(y1-y0)*k, MX=24, MT=Math.max(iy+118,gBot-300), MB=gBot-20, MM=(MT+MB)/2;
-  g+=`<defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b5a"/><stop offset=".38" stop-color="#ffb648"/><stop offset=".46" stop-color="#3ecf7a"/><stop offset=".54" stop-color="#3ecf7a"/><stop offset=".62" stop-color="#ffb648"/><stop offset="1" stop-color="#ff6b5a"/></linearGradient></defs>`;
+  g+=`<defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b5a"/><stop offset=".28" stop-color="#ffb648"/><stop offset=".40" stop-color="#3ecf7a"/><stop offset=".60" stop-color="#3ecf7a"/><stop offset=".72" stop-color="#ffb648"/><stop offset="1" stop-color="#ff6b5a"/></linearGradient></defs>`;
   g+=`<text x="${MX+6}" y="${MT-22}" font-size="38" font-weight="800" fill="#f3f1ea" text-anchor="middle">${pretty(tuning.notes[act])}</text>`;
   g+=`<rect x="${MX}" y="${MT}" width="12" height="${MB-MT}" rx="6" fill="url(#mg)"/>`;
   g+=`<text x="${MX+20}" y="${MT+9}" font-size="11" fill="#9fb0bf">zu hoch</text><text x="${MX+20}" y="${MM+4}" font-size="11" fill="#9fb0bf">richtig</text><text x="${MX+20}" y="${MB}" font-size="11" fill="#9fb0bf">zu tief</text>`;
@@ -311,7 +321,7 @@ function startStep(){
   $("stepHint").textContent="Zupf die rot leuchtende Saite – "+STRING_DESC[idx]+" – und lass sie klingen.";
   $("noteBig").textContent=pretty(n);
   gState.status='pluck'; drawHead();
-  inTune=0; anchor=null; hist=[];
+  resetPitch();
   setAdvice("Zupf die Saite! 🎵","", "var(--fg)"); setNeedle(null); markNext();
 }
 $("prev").onclick=()=>{if(idx>0){idx--;startStep();}};
@@ -346,37 +356,49 @@ function dirText(up){
   return ccw ? '<span class="arrow">↺</span>gegen den Uhrzeigersinn' : '<span class="arrow">↻</span>im Uhrzeigersinn';
 }
 
-let inTune=0, anchor=null, hist=[], lastT=0;
+let anchor=null, hist=[], lastT=0, ema=null, okState=false, okCount=0, silentFrames=99, skip=0, dirSign=0, dirCount=0;
+// Ruhige Anzeige: Anschlag ignorieren, Median + Glättung, großzügiges "passt" mit Hysterese
+const OK_IN=7, OK_OUT=16;
+function resetPitch(){hist=[];ema=null;okState=false;okCount=0;anchor=null;dirSign=0;dirCount=0;}
 function onPitch(f){
   const target=freq(tuning.notes[idx]);
   if(!f){ // Stille
-    if(performance.now()-lastT>1500){setNeedle(null);if(inTune<1){setG("pluck");}if(inTune<1)setAdvice("Zupf die Saite! 🎵","Kräftig anschlagen und klingen lassen.","var(--fg)");}
-    inTune=Math.max(0,inTune-0.5);
+    silentFrames++;
+    if(performance.now()-lastT>2000){setNeedle(null);okState=false;setG("pluck");setAdvice("Zupf die Saite! 🎵","Kräftig anschlagen und klingen lassen.","var(--fg)");}
     return;
   }
+  if(silentFrames>=3){skip=2;hist=[];}   // neuer Anschlag: erste Messungen (Anschlag) ignorieren
+  silentFrames=0;
+  if(skip>0){skip--;return;}
   lastT=performance.now();
-  hist.push(f); if(hist.length>5)hist.shift();
+  hist.push(f); if(hist.length>7)hist.shift();
   const sorted=[...hist].sort((a,b)=>a-b), fm=sorted[Math.floor(sorted.length/2)];
   const c=1200*Math.log2(fm/target);
-  setNeedle(c);
-  if(Math.abs(c)<=5){
-    inTune++;
-    setG("ok");setAdvice("✅ Perfekt!","Nicht mehr drehen…","var(--ok)");
-    if(inTune>=6&&!done[idx]){done[idx]=true; if(navigator.vibrate)try{navigator.vibrate(150)}catch(e){}; renderTuning($("tview2")); drawHead(); markNext();}
-    if(done[idx])setAdvice("✅ Perfekt!",idx<5?"Tipp auf „Weiter“ oder im Bild auf die nächste Saite.":"Tipp auf „Fertig“.","var(--ok)");
+  ema = (ema===null||Math.abs(c-ema)>150) ? c : ema*0.75+c*0.25;
+  const e=ema, a=Math.abs(e);
+  setNeedle(okState?e*0.5:e);
+  // passt? (rein bei ±7 Cent für ~0,4 s, raus erst bei ±16 Cent)
+  if(okState){ if(a>OK_OUT){okState=false;okCount=0;} }
+  else { if(a<=OK_IN){ if(++okCount>=5)okState=true; } else okCount=0; }
+  if(okState){
+    setG("ok");
+    if(!done[idx]){done[idx]=true; if(navigator.vibrate)try{navigator.vibrate(150)}catch(e){}; renderTuning($("tview2")); drawHead(); markNext();}
+    setAdvice("✅ Passt!",idx<5?"Tipp auf „Weiter“ oder im Bild auf die nächste Saite.":"Tipp auf „Fertig“.","var(--ok)");
     anchor=null; return;
   }
-  inTune=Math.max(0,inTune-1);
-  const up=c<0, a=Math.abs(c);
-  const how=a>60?"ein ganzes Stück":a>20?"ein bisschen":"nur ganz wenig";
-  const tooWhat=up?"Zu tief":"Zu hoch";
+  if(a<=OK_IN){setAdvice("Fast… 👌","Nicht mehr drehen, Saite klingen lassen.","var(--ok)");return;}
+  // Richtung erst wechseln, wenn sie stabil ist
+  const sg=e<0?-1:1;
+  if(sg===dirSign)dirCount++; else {dirSign=sg;dirCount=1;}
+  if(dirCount<3&&gState.status!=="pluck")return;
+  const up=sg<0;
+  const how=a>60?"ein ganzes Stück":a>25?"ein bisschen":"nur ganz wenig";
   let sub="Von oben auf das rote Rädchen geschaut – "+how+" drehen, dann nochmal zupfen.";
-  // Falsche Richtung erkennen
-  if(anchor===null||Math.sign(anchor)!==Math.sign(c)||a<Math.abs(anchor))anchor=c;
-  if(a-Math.abs(anchor)>25){sub="⚠️ Ups – das war die falsche Richtung! Andersrum drehen.";}
+  if(anchor===null||Math.sign(anchor)!==sg||a<Math.abs(anchor))anchor=e;
+  if(a-Math.abs(anchor)>30){sub="⚠️ Ups – das war die falsche Richtung! Andersrum drehen.";}
   if(a>400)sub="Das ist noch weit weg – ruhig mehrere Umdrehungen. "+sub;
   setG(up?"up":"down");
-  setAdvice(tooWhat+"! Dreh "+dirText(up),sub,a>20?"var(--bad)":"var(--warn)");
+  setAdvice((up?"Zu tief":"Zu hoch")+"! Dreh "+dirText(up),sub,a>25?"var(--bad)":"var(--warn)");
 }
 
 // ---------- Mikrofon & Tonhöhe (YIN) ----------
