@@ -18,6 +18,7 @@
   button{cursor:pointer;font-weight:600}
   .big{background:var(--acc);border-color:var(--acc);color:#06121d;font-size:19px;padding:16px}
   .ghost{background:transparent}
+  #autoBtn.on{background:#5ab4ff;border-color:#5ab4ff;color:#06121d}
   .ghost.big{background:var(--ok);border-color:var(--ok);color:#06210f}
   .list{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:260px;overflow:auto}
   .list button{text-align:left;font-weight:500;display:flex;justify-content:space-between;gap:8px}
@@ -83,6 +84,7 @@
     <button class="ghost" id="backSong" style="flex:0 0 auto;width:auto;padding:10px 14px">← Lied wählen</button>
     <div id="songInfo" style="flex:1;text-align:right;font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
   </div>
+  <button id="autoBtn" style="margin:0 0 10px"></button>
   <p id="capo3" class="mut" style="margin:0 0 8px"></p>
   <p id="micErr3" style="color:var(--bad);margin:0 0 8px"></p>
   <div class="tuning" id="tview2"></div>
@@ -318,7 +320,7 @@ function startStep(){
   renderTuning($("tview2"));
   const n=tuning.notes[idx], sn=6-idx;
   $("stepTitle").textContent="Saite "+sn+" → "+pretty(n);
-  $("stepHint").textContent="Zupf die rot leuchtende Saite – "+STRING_DESC[idx]+" – und lass sie klingen.";
+  $("stepHint").textContent=autoMode?"Zupf irgendeine Saite – ich erkenne automatisch, welche es ist.":"Zupf die rot leuchtende Saite – "+STRING_DESC[idx]+" – und lass sie klingen.";
   $("noteBig").textContent=pretty(n);
   gState.status='pluck'; drawHead();
   resetPitch();
@@ -359,6 +361,21 @@ function dirText(up){
 let anchor=null, hist=[], lastT=0, ema=null, okState=false, okCount=0, silentFrames=99, skip=0, dirSign=0, dirCount=0;
 // Ruhige Anzeige: Anschlag ignorieren, Median + Glättung, großzügiges "passt" mit Hysterese
 const OK_IN=7, OK_OUT=16;
+let autoMode=false; try{autoMode=localStorage.getItem("tunerAuto")==="1";}catch(e){}
+let autoCand=-1, autoCount=0;
+function renderAuto(){const b=$("autoBtn");b.classList.toggle("on",autoMode);b.textContent=autoMode?"🎯 Saite automatisch erkennen: AN":"🎯 Saite automatisch erkennen: AUS";}
+$("autoBtn").onclick=()=>{autoMode=!autoMode;try{localStorage.setItem("tunerAuto",autoMode?"1":"0")}catch(e){};autoCand=-1;renderAuto();startStep();};
+renderAuto();
+// Welche Saite ist das? Nächste Zielfrequenz (in Cent), muss 3x hintereinander gleich sein
+function autoPick(f){
+  let best=0,bd=1e9;
+  tuning.notes.forEach((n,i)=>{const d=Math.abs(1200*Math.log2(f/freq(n)));if(d<bd){bd=d;best=i;}});
+  if(bd>450)return false;
+  if(best===idx){autoCand=-1;return true;}
+  if(best===autoCand)autoCount++; else {autoCand=best;autoCount=1;}
+  if(autoCount>=3){autoCand=-1;idx=best;startStep();}
+  return false;
+}
 function resetPitch(){hist=[];ema=null;okState=false;okCount=0;anchor=null;dirSign=0;dirCount=0;}
 function onPitch(f){
   const target=freq(tuning.notes[idx]);
@@ -370,6 +387,7 @@ function onPitch(f){
   if(silentFrames>=3){skip=2;hist=[];}   // neuer Anschlag: erste Messungen (Anschlag) ignorieren
   silentFrames=0;
   if(skip>0){skip--;return;}
+  if(autoMode&&!autoPick(f))return;
   lastT=performance.now();
   hist.push(f); if(hist.length>7)hist.shift();
   const sorted=[...hist].sort((a,b)=>a-b), fm=sorted[Math.floor(sorted.length/2)];
@@ -429,7 +447,8 @@ function tick(){
   let rms=0;for(let i=0;i<buf.length;i++)rms+=buf[i]*buf[i];rms=Math.sqrt(rms/buf.length);
   if(rms<0.008){onPitch(null);return;}
   const sr=ctx.sampleRate, target=freq(tuning.notes[idx]);
-  const minLag=Math.max(2,Math.floor(sr/(target*1.9))), maxLag=Math.min(Math.floor(sr/(target*0.5)),buf.length/2);
+  const fl=autoMode?Math.min(...tuning.notes.map(freq))*0.7:target*0.5, fh=autoMode?Math.max(...tuning.notes.map(freq))*1.4:target*1.9;
+  const minLag=Math.max(2,Math.floor(sr/fh)), maxLag=Math.min(Math.floor(sr/fl),buf.length/2);
   const W=buf.length-maxLag;
   if(!yinD||yinD.length<maxLag+2)yinD=new Float32Array(maxLag+2);
   yinD[0]=1; let run=0;
