@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gitarre stimmen</title>
+<style>
+  :root{--bg:#101820;--card:#1b2631;--fg:#f3f1ea;--mut:#9fb0bf;--ok:#3ecf7a;--warn:#ffb648;--bad:#ff6b5a;--acc:#5ab4ff}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  main{max-width:520px;margin:0 auto;padding:18px 16px 40px}
+  h1{font-size:26px;margin:4px 0 6px}
+  h2{font-size:20px;margin:0 0 8px}
+  p{margin:6px 0}
+  .mut{color:var(--mut);font-size:15px}
+  .card{background:var(--card);border-radius:16px;padding:16px;margin:14px 0}
+  input,select,button{font:inherit;color:var(--fg);background:#24323f;border:1px solid #33475a;border-radius:12px;padding:12px 14px;width:100%}
+  button{cursor:pointer;font-weight:600}
+  .big{background:var(--acc);border-color:var(--acc);color:#06121d;font-size:19px;padding:16px}
+  .ghost{background:transparent}
+  .list{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:260px;overflow:auto}
+  .list button{text-align:left;font-weight:500;display:flex;justify-content:space-between;gap:8px}
+  .list button span{color:var(--mut);font-size:14px;white-space:nowrap}
+  .hidden{display:none!important}
+  .tuning{display:flex;gap:6px;justify-content:space-between;margin:10px 0}
+  .tuning div{flex:1;text-align:center;background:#24323f;border-radius:10px;padding:8px 0;font-weight:700;border:2px solid transparent}
+  .tuning div small{display:block;font-weight:400;color:var(--mut);font-size:12px}
+  .tuning div.cur{border-color:var(--acc)}
+  .tuning div.done{background:#1d4a33;color:#bff5d4}
+  .stepTitle{font-size:22px;font-weight:700}
+  .note{font-size:64px;font-weight:800;text-align:center;line-height:1;margin:8px 0 2px}
+  .meter{position:relative;height:56px;margin:14px 4px 6px}
+  .scale{position:absolute;left:0;right:0;top:24px;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--bad),var(--warn) 38%,var(--ok) 47%,var(--ok) 53%,var(--warn) 62%,var(--bad))}
+  .needle{position:absolute;top:6px;width:6px;height:44px;margin-left:-3px;background:#fff;border-radius:3px;left:50%;transition:left .12s linear}
+  .lbls{display:flex;justify-content:space-between;color:var(--mut);font-size:13px}
+  .advice{font-size:24px;font-weight:800;text-align:center;margin:12px 0 4px;min-height:64px}
+  .sub{text-align:center;color:var(--mut);min-height:24px}
+  .arrow{font-size:40px;display:block}
+  svg{width:100%;height:auto;display:block}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  .party{font-size:56px;text-align:center}
+</style>
+</head>
+<body>
+<main>
+
+<!-- 1. Lied wählen -->
+<section id="s1">
+  <h1>🎸 Gitarre stimmen</h1>
+  <p class="mut">Welches Lied willst du spielen? Dann sag ich dir, wie die Gitarre gestimmt sein muss.</p>
+  <div class="card">
+    <input id="q" placeholder="Lied oder Band eintippen…" autocomplete="off">
+    <div class="list" id="songs"></div>
+    <p class="mut" id="nohit" style="margin-top:10px"></p>
+  </div>
+  <div class="card">
+    <h2>Oder Stimmung direkt wählen</h2>
+    <select id="tsel"></select>
+    <button class="big" id="pick" style="margin-top:10px">Diese Stimmung nehmen</button>
+  </div>
+</section>
+
+<!-- 2. Übersicht + Start -->
+<section id="s2" class="hidden">
+  <h1 id="songTitle"></h1>
+  <div class="card">
+    <h2 id="tname"></h2>
+    <div class="tuning" id="tview"></div>
+    <p id="capo" class="mut"></p>
+    <p class="mut">Wir stimmen Saite für Saite. Du zupfst, ich höre zu und sage dir, wie du das Rädchen drehen musst.</p>
+  </div>
+  <button class="big" id="go">🎤 Los geht's!</button>
+  <p class="mut" style="text-align:center">Das Handy fragt gleich, ob es das Mikrofon benutzen darf – bitte „Erlauben“ tippen.</p>
+  <button class="ghost" id="back1" style="margin-top:8px">← Anderes Lied</button>
+  <p id="micErr" style="color:var(--bad)"></p>
+</section>
+
+<!-- 3. Stimmen -->
+<section id="s3" class="hidden">
+  <div class="tuning" id="tview2"></div>
+  <div class="card">
+    <div class="stepTitle" id="stepTitle"></div>
+    <p class="mut" id="stepHint"></p>
+    <svg id="head" viewBox="0 0 320 615" aria-label="Gitarre"></svg>
+    <p class="mut" style="text-align:center;margin-top:2px">Leg die Gitarre so vor dich wie auf dem Bild. Die <b style="color:#ff4d40">rote</b> Saite zupfen, am <b style="color:#ff4d40">roten</b> Rädchen in Pfeilrichtung drehen.</p>
+  </div>
+  <div class="card">
+    <div class="note" id="noteBig"></div>
+    <div class="meter"><div class="scale"></div><div class="needle" id="needle"></div></div>
+    <div class="lbls"><span>zu tief</span><span>genau richtig</span><span>zu hoch</span></div>
+    <div class="advice" id="advice">Zupf die Saite!</div>
+    <div class="sub" id="sub"></div>
+  </div>
+  <div class="row">
+    <button class="ghost" id="prev">← Zurück</button>
+    <button class="ghost" id="skip">Weiter →</button>
+  </div>
+  <button class="ghost" id="flip" style="margin-top:8px;font-size:14px;font-weight:500">Für Papa: Drehrichtung stimmt nicht? Hier tauschen</button>
+</section>
+
+<!-- 4. Fertig -->
+<section id="s4" class="hidden">
+  <div class="party">🎉</div>
+  <h1 style="text-align:center">Super, alles gestimmt!</h1>
+  <p id="doneCapo" style="text-align:center"></p>
+  <p class="mut" style="text-align:center">Tipp: Spiel einmal alles und prüf danach nochmal kurz – neue Saiten verstimmen sich am Anfang gern.</p>
+  <button class="big" id="again" style="margin-top:14px">Nochmal prüfen</button>
+  <button class="ghost" id="newSong" style="margin-top:8px">Anderes Lied</button>
+</section>
+
+</main>
+<script>
+// ---------- Daten ----------
+const TUNINGS={
+  std:{name:"Standard",notes:["E2","A2","D3","G3","H3","E4"]},
+  eb:{name:"Halbton tiefer (Eb)",notes:["D#2","G#2","C#3","F#3","A#3","D#4"]},
+  dropd:{name:"Drop D",notes:["D2","A2","D3","G3","H3","E4"]},
+  dstd:{name:"Ganzton tiefer (D-Standard)",notes:["D2","G2","C3","F3","A3","D4"]},
+  dropcs:{name:"Drop C#",notes:["C#2","G#2","C#3","F#3","A#3","D#4"]},
+  dropc:{name:"Drop C",notes:["C2","G2","C3","F3","A3","D4"]},
+  openg:{name:"Open G",notes:["D2","G2","D3","G3","H3","D4"]},
+  dadgad:{name:"DADGAD",notes:["D2","A2","D3","G3","A3","D4"]}
+};
+// Lieder: [Titel, Band, Stimmung, Kapodaster-Bund]
+const SONGS=[
+ ["Smoke on the Water","Deep Purple","std",0],
+ ["Seven Nation Army","The White Stripes","std",0],
+ ["Highway to Hell","AC/DC","std",0],
+ ["Back in Black","AC/DC","std",0],
+ ["Thunderstruck","AC/DC","std",0],
+ ["T.N.T.","AC/DC","std",0],
+ ["Enter Sandman","Metallica","std",0],
+ ["Nothing Else Matters","Metallica","std",0],
+ ["Knockin' on Heaven's Door","Bob Dylan / Guns N' Roses","std",0],
+ ["Wonderwall","Oasis","std",2],
+ ["Wish You Were Here","Pink Floyd","std",0],
+ ["Stairway to Heaven","Led Zeppelin","std",0],
+ ["Sunshine of Your Love","Cream","std",0],
+ ["Johnny B. Goode","Chuck Berry","std",0],
+ ["Hey Joe","Jimi Hendrix","eb",0],
+ ["Purple Haze","Jimi Hendrix","eb",0],
+ ["Sweet Child O' Mine","Guns N' Roses","eb",0],
+ ["Paradise City","Guns N' Roses","eb",0],
+ ["Pride and Joy","Stevie Ray Vaughan","eb",0],
+ ["Everlong","Foo Fighters","dropd",0],
+ ["Killing in the Name","Rage Against the Machine","dropd",0],
+ ["Chop Suey!","System of a Down","dropc",0],
+ ["Toxicity","System of a Down","dropc",0],
+ ["Aerials","System of a Down","dropc",0],
+ ["Brown Sugar","The Rolling Stones","openg",0],
+ ["Start Me Up","The Rolling Stones","openg",0]
+];
+const NAMES=["C","C#","D","D#","E","F","F#","G","G#","A","A#","H"];
+const STRING_DESC=["die dickste Saite","die zweitdickste Saite","die dritte Saite von der dicken Seite","die dritte Saite von der dünnen Seite","die zweitdünnste Saite","die dünnste Saite"];
+function midi(n){const m=n.match(/^([A-H]#?)(\d)$/);return NAMES.indexOf(m[1])+12*(+m[2]+1);}
+function freq(n){return 440*Math.pow(2,(midi(n)-69)/12);}
+function pretty(n){return n.replace(/\d/,"").replace("C#","C♯").replace("D#","D♯").replace("F#","F♯").replace("G#","G♯").replace("A#","A♯");}
+
+// ---------- Zustand ----------
+let tuning=null, song=null, idx=0, done=[];
+let flipped=false; try{flipped=localStorage.getItem("tunerFlip")==="1";}catch(e){}
+const $=id=>document.getElementById(id);
+function show(id){["s1","s2","s3","s4"].forEach(s=>$(s).classList.toggle("hidden",s!==id));window.scrollTo(0,0);}
+
+// ---------- Schritt 1 ----------
+Object.entries(TUNINGS).forEach(([k,t])=>{const o=document.createElement("option");o.value=k;o.textContent=t.name+" – "+t.notes.map(pretty).join(" ");$("tsel").appendChild(o);});
+function norm(s){return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,"");}
+function renderSongs(){
+  const q=norm($("q").value), box=$("songs"); box.innerHTML="";
+  const hits=SONGS.filter(s=>!q||norm(s[0]+s[1]).includes(q));
+  hits.forEach(s=>{const b=document.createElement("button");b.innerHTML=s[0]+" <span>"+s[1]+"</span>";b.onclick=()=>choose(s[2],s);box.appendChild(b);});
+  $("nohit").textContent=hits.length?"":"Das Lied kenne ich noch nicht. Frag Papa, welche Stimmung es braucht – meistens ist es „Standard“. Unten kannst du sie auswählen.";
+}
+$("q").oninput=renderSongs; renderSongs();
+$("pick").onclick=()=>choose($("tsel").value,null);
+function choose(key,s){
+  tuning=TUNINGS[key]; song=s; idx=0; done=[];
+  $("songTitle").textContent=s?s[0]:"Stimmung: "+tuning.name;
+  $("tname").textContent="Stimmung: "+tuning.name;
+  renderTuning($("tview"));
+  const capo=s&&s[3]?"Danach Kapodaster in den "+s[3]+". Bund setzen (erst NACH dem Stimmen).":"";
+  $("capo").textContent=capo; $("doneCapo").textContent=capo;
+  show("s2");
+}
+$("back1").onclick=()=>show("s1");
+$("newSong").onclick=()=>{stopMic();show("s1");};
+
+function renderTuning(el){
+  el.innerHTML="";
+  tuning.notes.forEach((n,i)=>{const d=document.createElement("div");d.innerHTML=pretty(n)+"<small>Saite "+(6-i)+"</small>";
+    if(el.id==="tview2"){if(i===idx)d.className="cur";if(done[i])d.className="done";}
+    el.appendChild(d);});
+}
+
+// ---------- Gitarren-Skizze (nach Fotos: Superstrat, 6 Rädchen links am Kopf) ----------
+// state: {status:'pluck'|'up'|'down'|'ok'}
+let gState={status:'pluck'};
+function isCCW(up){const tighten=!flipped;return up?tighten:!tighten;}
+function arcArrow(cx,cy,r,ccw,color,w){
+  // Bogen ~280°, Start oben-rechts; ccw = gegen den Uhrzeigersinn (Bildschirm)
+  const pts=[], start=ccw?-40:220, sweep=280, n=40;
+  for(let k=0;k<=n;k++){const ang=(start+(ccw?-1:1)*sweep*k/n)*Math.PI/180;pts.push([cx+r*Math.cos(ang),cy+r*Math.sin(ang)]);}
+  const [x1,y1]=pts[n-2],[x2,y2]=pts[n];const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,h=w*3.2;
+  const tip=[x2+ux*h*0.9,y2+uy*h*0.9],l=[x2-uy*h,y2+ux*h],rr=[x2+uy*h,y2-ux*h];
+  return `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`+
+         `<polygon points="${tip.join(',')} ${l.join(',')} ${rr.join(',')}" fill="${color}"/>`;
+}
+function drawHead(){
+  const act=idx, st=gState.status, RED='#ff3b30', GRN='#3ecf7a';
+  const hot = st==='ok'?GRN:RED;
+  const nutY=170, bridgeY=548;
+  const nutX=i=>133+i*6.8, brX=i=>124+i*10.4, postY=i=>150-i*22, postX=136;
+  let g='';
+  // Body (schwarz, Superstrat)
+  g+='<path d="M150 395 C132 393 118 330 96 312 C70 326 60 378 72 420 C56 462 46 522 72 572 C104 604 198 604 230 572 C256 522 246 470 232 440 C242 400 232 350 210 334 C190 344 172 392 150 395 Z" fill="#17191c" stroke="#d8d8d8" stroke-width="1.5"/>';
+  // Schlagbrett-Linie, Tonabnehmer, Regler
+  g+='<path d="M118 420 C110 470 112 540 128 560 L176 560 C196 540 205 470 186 420 Z" fill="#0c0d0f" stroke="#cfcfcf" stroke-width="1"/>';
+  g+='<rect x="120" y="438" width="62" height="20" rx="4" fill="#222" stroke="#555"/><rect x="120" y="492" width="62" height="20" rx="4" fill="#222" stroke="#555"/>';
+  g+='<circle cx="205" cy="490" r="7" fill="#111" stroke="#666"/><circle cx="212" cy="518" r="7" fill="#111" stroke="#666"/>';
+  // Brücke
+  g+='<rect x="116" y="'+(bridgeY-6)+'" width="74" height="26" rx="3" fill="#c9ced3" stroke="#8a9096"/>';
+  // Hals + Griffbrett
+  g+='<rect x="128" y="'+nutY+'" width="44" height="245" fill="#e2c493"/>';
+  g+='<rect x="130" y="'+nutY+'" width="40" height="250" fill="#6b3524"/>';
+  let fy=nutY;for(let f=1;f<=15;f++){fy+=24*Math.pow(0.94,f);g+=`<line x1="130" x2="170" y1="${fy}" y2="${fy}" stroke="#c8c8c8" stroke-width="1.3"/>`;
+    if([3,5,7,9,12,15].includes(f))g+=`<rect x="143" y="${fy-14}" width="14" height="8" fill="#eee" opacity=".85"/>`;}
+  // Kopf
+  g+='<path d="M126 170 L126 28 L150 8 L182 58 L174 170 Z" fill="#e2c493" stroke="#a88a5c" stroke-width="1.5"/>';
+  g+='<path d="M131 165 L131 32 L150 16 L176 60 L169 165 Z" fill="#1b1d20"/>';
+  g+='<rect x="128" y="'+(nutY-3)+'" width="44" height="5" fill="#f2f2f2"/>';
+  // Rädchen (Seite links), Wirbel
+  for(let i=0;i<6;i++){
+    const y=postY(i), isA=i===act, col=isA?hot:(done[i]?GRN:'#c9ced3');
+    g+=`<line x1="104" y1="${y}" x2="126" y2="${y}" stroke="#aab" stroke-width="5"/>`;
+    g+=`<rect x="${isA?84:90}" y="${y-(isA?10:8)}" width="${isA?28:22}" height="${isA?20:16}" rx="6" fill="${col}" stroke="${isA?'#fff':'#7d858c'}" stroke-width="${isA?2.5:1.2}" ${isA?'filter="url(#glow)"':''}/>`;
+    g+=`<circle cx="${postX}" cy="${y}" r="4.5" fill="#d6dade" stroke="#777"/>`;
+  }
+  // Saiten
+  for(let i=0;i<6;i++){
+    const isA=i===act, col=isA?hot:(done[i]?GRN:'#a9b0b7'), w=(isA?1.4:0.6)+(2.4-i*0.35);
+    const pts=`${brX(i)},${bridgeY} ${nutX(i)},${nutY} ${postX},${postY(i)}`;
+    g+=`<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="${w}" ${isA?'filter="url(#glow)" class="'+(st==='pluck'?'pulse':'')+'"':''}/>`;
+  }
+  // Saitennummern unten
+  for(let i=0;i<6;i++){const isA=i===act;g+=`<text x="${brX(i)}" y="${bridgeY+40}" font-size="${isA?15:11}" font-weight="${isA?800:400}" fill="${isA?hot:'#9fb0bf'}" text-anchor="middle">${6-i}</text>`;}
+  g+=`<text x="${brX(0)-6}" y="${bridgeY+58}" font-size="10" fill="#9fb0bf" text-anchor="start">dick</text><text x="${brX(5)+6}" y="${bridgeY+58}" font-size="10" fill="#9fb0bf" text-anchor="end">dünn</text>`;
+
+  // Lupe: Rädchen von außen + Drehpfeil
+  let ins='';
+  const iy=postY(act)+(act<2?0:0), cx=46;
+  ins+=`<line x1="${cx+34}" y1="${iy}" x2="144" y2="${iy}" stroke="${hot}" stroke-width="2" stroke-dasharray="4 4"/>`;
+  ins+=`<circle cx="${cx}" cy="${iy}" r="21" fill="${hot}" stroke="#fff" stroke-width="2.5"/>`;
+  ins+=`<rect x="${cx-4}" y="${iy-15}" width="8" height="30" rx="3" fill="#fff" opacity=".85"/>`;
+  if(st==='up'||st==='down') ins+=arcArrow(cx,iy,31,isCCW(st==='up'),'#ffffff',5);
+  if(st==='ok') ins+=`<text x="${cx}" y="${iy+52}" font-size="15" font-weight="800" fill="${GRN}" text-anchor="middle">✓ passt</text>`;
+  else if(st==='pluck') ins+=`<text x="${cx}" y="${iy+48}" font-size="11" fill="#9fb0bf" text-anchor="middle">zupfen!</text>`;
+  else ins+=`<text x="${cx}" y="${iy+52}" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">${st==='up'?'höher':'tiefer'}</text>`;
+
+  $("head").innerHTML=`<defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+  <style>.pulse{animation:p 1s ease-in-out infinite}@keyframes p{50%{opacity:.35}}</style>
+  <g transform="translate(60,0)">${g}</g>${ins.replace(/x1="(\d+)" y1="([\d.]+)" x2="144"/,'x1="$1" y1="$2" x2="'+(144+60-56)+'"')}`;
+}
+function setG(status){if(gState.status!==status){gState.status=status;drawHead();}}
+
+// ---------- Stimmen ----------
+function startStep(){
+  renderTuning($("tview2"));
+  const n=tuning.notes[idx], sn=6-idx;
+  $("stepTitle").textContent="Saite "+sn+" → "+pretty(n);
+  $("stepHint").textContent="Zupf die rot leuchtende Saite – "+STRING_DESC[idx]+" – und lass sie klingen.";
+  $("noteBig").textContent=pretty(n);
+  gState.status='pluck'; drawHead();
+  inTune=0; anchor=null; hist=[];
+  setAdvice("Zupf die Saite! 🎵","", "var(--fg)"); setNeedle(null);
+}
+$("prev").onclick=()=>{if(idx>0){idx--;startStep();}};
+$("skip").onclick=()=>next();
+$("flip").onclick=()=>{flipped=!flipped;try{localStorage.setItem("tunerFlip",flipped?"1":"0")}catch(e){};$("sub").textContent="Drehrichtung getauscht.";drawHead();};
+$("again").onclick=()=>{idx=0;done=[];show("s3");startStep();startMic();};
+
+function next(){
+  done[idx]=true;
+  if(idx<5){idx++;startStep();}
+  else{stopMic();show("s4");}
+}
+
+function setAdvice(t,sub,color){$("advice").innerHTML=t;$("advice").style.color=color;$("sub").textContent=sub||"";}
+function setNeedle(c){
+  const n=$("needle");
+  if(c===null){n.style.opacity=.25;n.style.left="50%";return;}
+  n.style.opacity=1;
+  const v=Math.max(-50,Math.min(50,c));
+  n.style.left=(50+v)+"%";
+}
+
+// Richtung: Kopf mit 6 Rädchen in einer Reihe, Rädchen zeigen nach oben.
+// Von oben auf den Knopf geschaut: gegen den Uhrzeigersinn = Saite spannen (höher).
+function dirText(up){
+  const tighten=!flipped;
+  const ccw = up ? tighten : !tighten;
+  return ccw ? '<span class="arrow">↺</span>gegen den Uhrzeigersinn' : '<span class="arrow">↻</span>im Uhrzeigersinn';
+}
+
+let advancing=false, inTune=0, anchor=null, hist=[], lastT=0;
+function onPitch(f){
+  if(advancing)return;
+  const target=freq(tuning.notes[idx]);
+  if(!f){ // Stille
+    if(performance.now()-lastT>1500){setNeedle(null);if(inTune<1){setG("pluck");}if(inTune<1)setAdvice("Zupf die Saite! 🎵","Kräftig anschlagen und klingen lassen.","var(--fg)");}
+    inTune=Math.max(0,inTune-0.5);
+    return;
+  }
+  lastT=performance.now();
+  hist.push(f); if(hist.length>5)hist.shift();
+  const sorted=[...hist].sort((a,b)=>a-b), fm=sorted[Math.floor(sorted.length/2)];
+  const c=1200*Math.log2(fm/target);
+  setNeedle(c);
+  if(Math.abs(c)<=5){
+    inTune++;
+    setG("ok");setAdvice("✅ Perfekt!","Nicht mehr drehen…","var(--ok)");
+    if(inTune>=8&&!advancing){advancing=true; if(navigator.vibrate)try{navigator.vibrate(150)}catch(e){}; setTimeout(()=>{advancing=false;next();},700);}
+    anchor=null; return;
+  }
+  inTune=Math.max(0,inTune-1);
+  const up=c<0, a=Math.abs(c);
+  const how=a>60?"ein ganzes Stück":a>20?"ein bisschen":"nur ganz wenig";
+  const tooWhat=up?"Zu tief":"Zu hoch";
+  let sub="Von oben auf das gelbe Rädchen geschaut – "+how+" drehen, dann nochmal zupfen.";
+  // Falsche Richtung erkennen
+  if(anchor===null||Math.sign(anchor)!==Math.sign(c)||a<Math.abs(anchor))anchor=c;
+  if(a-Math.abs(anchor)>25){sub="⚠️ Ups – das war die falsche Richtung! Andersrum drehen.";}
+  if(a>400)sub="Das ist noch weit weg – ruhig mehrere Umdrehungen. "+sub;
+  setG(up?"up":"down");
+  setAdvice(tooWhat+"! Dreh "+dirText(up),sub,a>20?"var(--bad)":"var(--warn)");
+}
+
+// ---------- Mikrofon & Tonhöhe (YIN) ----------
+let ctx=null, stream=null, an=null, buf=null, timer=null;
+$("go").onclick=async()=>{
+  $("micErr").textContent="";
+  try{await startMic();show("s3");startStep();}
+  catch(e){$("micErr").textContent="Das Mikrofon geht nicht. Bitte in den Browser-Einstellungen erlauben und neu laden. ("+e.name+")";}
+};
+async function startMic(){
+  if(stream)return;
+  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
+  if(ctx.state==="suspended")await ctx.resume();
+  const src=ctx.createMediaStreamSource(stream);
+  an=ctx.createAnalyser(); an.fftSize=4096; src.connect(an);
+  buf=new Float32Array(an.fftSize);
+  timer=setInterval(tick,70);
+}
+function stopMic(){
+  if(timer)clearInterval(timer);timer=null;
+  if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;
+}
+let yinD=null;
+function tick(){
+  if(!tuning||$("s3").classList.contains("hidden"))return;
+  an.getFloatTimeDomainData(buf);
+  let rms=0;for(let i=0;i<buf.length;i++)rms+=buf[i]*buf[i];rms=Math.sqrt(rms/buf.length);
+  if(rms<0.008){onPitch(null);return;}
+  const sr=ctx.sampleRate, target=freq(tuning.notes[idx]);
+  const minLag=Math.max(2,Math.floor(sr/(target*1.9))), maxLag=Math.min(Math.floor(sr/(target*0.5)),buf.length/2);
+  const W=buf.length-maxLag;
+  if(!yinD||yinD.length<maxLag+2)yinD=new Float32Array(maxLag+2);
+  yinD[0]=1; let run=0;
+  for(let tau=1;tau<=maxLag;tau++){
+    let s=0;for(let i=0;i<W;i++){const d=buf[i]-buf[i+tau];s+=d*d;}
+    run+=s; yinD[tau]=run?s*tau/run:1;
+  }
+  let best=-1;
+  for(let tau=minLag;tau<maxLag;tau++){
+    if(yinD[tau]<0.15){while(tau+1<maxLag&&yinD[tau+1]<yinD[tau])tau++;best=tau;break;}
+  }
+  if(best<0){let m=1e9;for(let tau=minLag;tau<maxLag;tau++)if(yinD[tau]<m){m=yinD[tau];best=tau;} if(m>0.35){onPitch(null);return;}}
+  const x0=yinD[best-1],x1=yinD[best],x2=yinD[best+1]||x1;
+  const den=x0-2*x1+x2, shift=den?0.5*(x0-x2)/den:0;
+  onPitch(sr/(best+shift));
+}
+</script>
+</body>
+</html>
