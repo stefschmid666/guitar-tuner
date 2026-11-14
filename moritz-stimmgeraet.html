@@ -83,13 +83,12 @@
   <div class="card">
     <div class="stepTitle" id="stepTitle"></div>
     <p class="mut" id="stepHint"></p>
-    <svg id="head" viewBox="0 20 320 580" aria-label="Gitarre"></svg>
+    <svg id="head" viewBox="0 16 320 600" aria-label="Gitarre"></svg>
     <p class="mut" style="text-align:center;margin-top:2px">So siehst du beim Spielen auf den Hals deiner Gitarre. Die <b style="color:#ff4d40">rote</b> Saite zupfen, am <b style="color:#ff4d40">roten</b> Rädchen in Pfeilrichtung drehen. Andere Saite stimmen? Einfach im Bild drauftippen.</p>
   </div>
   <div class="card">
-    <div class="note" id="noteBig"></div>
-    <div class="meter"><div class="scale"></div><div class="needle" id="needle"></div></div>
-    <div class="lbls"><span>zu tief</span><span>genau richtig</span><span>zu hoch</span></div>
+    <div class="note hidden" id="noteBig"></div>
+    <div class="meter hidden"><div class="scale"></div><div class="needle" id="needle"></div></div>
     <div class="advice" id="advice">Zupf die Saite!</div>
     <div class="sub" id="sub"></div>
   </div>
@@ -219,20 +218,20 @@ function drawHead(){
   const F=nrm(sub(T,C)), R=nrm(cross(F,[0,0,1])), U=cross(R,F);
   const pr=(X,Y,Z)=>{const x=X*ct+Z*sn, z=-X*sn+Z*ct; const d=sub([x,Y,z],C); const zc=dot(d,F); return [dot(d,R)/zc, -dot(d,U)/zc, zc];};
   // Geometrie (mm)
-  const SL=648, d=n=>SL*(1-Math.pow(2,-n/12)), YN=d(6), wN=43, w=y=>wN+(YN-y)/YN*9;
+  const SL=648, d=n=>SL*(1-Math.pow(2,-n/12)), YN=d(6), wN=64, w=y=>wN+(YN-y)/YN*10;
   const bassX=y=>-w(y)/2, trebX=y=>w(y)/2;
-  const sx=(i,y)=>{const t=(YN-y)/YN;const sp=7.2+t*2.2;return (i-2.5)*sp;}; // i=0 Saite 6 links
-  const HB=-27, kY=i=>YN+38+27*i;   // Bass-Kante Kopf, Rädchen-Positionen
+  const sx=(i,y)=>{const t=(YN-y)/YN;const sp=10.5+t*1.8;return (i-2.5)*sp;}; // i=0 Saite 6 links
+  const HB=-38, kY=i=>YN+42+54*i;   // Bass-Kante Kopf, Rädchen-Positionen
   const shapes=[]; // {pts:[[X,Y,Z]..], fill, stroke, sw, close, extra, idx}
   const add=o=>shapes.push(o);
   // Halsseite (Ahorn, sichtbar durch Drehung)
   add({pts:[[bassX(0),0,0],[bassX(YN),YN,0],[bassX(YN),YN,-18],[bassX(0),0,-21]],fill:'#cfae7c',close:1});
   // Kopfseite
-  add({pts:[[HB,YN,0],[HB,YN+182,0],[HB,YN+182,-14],[HB,YN,-14]],fill:'#cfae7c',close:1});
+  add({pts:[[HB,YN,0],[HB,YN+340,0],[HB,YN+340,-14],[HB,YN,-14]],fill:'#cfae7c',close:1});
   // Griffbrett
   add({pts:[[bassX(0),0,0],[bassX(YN),YN,0],[trebX(YN),YN,0],[trebX(0),0,0]],fill:'#6b3524',stroke:'#e2c493',sw:3,close:1});
   // Kopf-Fläche
-  add({pts:[[HB,YN,0],[HB,YN+182,0],[-10,YN+200,0],[36,YN+62,0],[trebX(YN)+2,YN,0]],fill:'#1b1d20',stroke:'#e2c493',sw:3,close:1});
+  add({pts:[[HB,YN,0],[HB,YN+340,0],[-18,YN+364,0],[50,YN+90,0],[trebX(YN)+2,YN,0]],fill:'#1b1d20',stroke:'#e2c493',sw:3,close:1});
   // Bünde
   for(let n=1;n<=6;n++){const y=YN-d(n);add({pts:[[bassX(y),y,0.5],[trebX(y),y,0.5]],stroke:'#c8c8c8',sw:2});
     if([3,5,7,9].includes(n)){const y2=YN-d(n-1),a=y+(y2-y)*0.22,b=y+(y2-y)*0.78,wl=w(y)*0.32;
@@ -242,23 +241,24 @@ function drawHead(){
   // Rädchen + Stifte
   const knobPos={};
   for(let i=0;i<6;i++){
-    const y=kY(i), isA=i===act, col=isA?hot:(done[i]?GRN:'#c9ced3'), hw=isA?11:9;
+    const y=kY(i), isA=i===act, col=isA?hot:(done[i]?GRN:'#c9ced3'), hw=isA?13:10;
     add({pts:[[HB,y,-6],[HB-14,y,-6]],stroke:'#aab',sw:5});
-    const qy=0.45,qz=0.9;add({pts:[[HB-12,y-hw*qy,-6-hw*qz],[HB-40,y-hw*1.15*qy,-6-hw*1.15*qz],[HB-40,y+hw*1.15*qy,-6+hw*1.15*qz],[HB-12,y+hw*qy,-6+hw*qz]],fill:col,stroke:isA?'#fff':'#7d858c',sw:isA?2.5:1.2,close:1,glow:isA,idx:i,round:1});
-    knobPos[i]=[HB-40,y,-6];
-    add({circle:[-17,y,2],r:3.5,fill:'#d6dade',stroke:'#777'});
+    const qy=0.45,qz=0.9;add({pts:[[HB-14,y-hw*qy,-6-hw*qz],[HB-52,y-hw*1.15*qy,-6-hw*1.15*qz],[HB-52,y+hw*1.15*qy,-6+hw*1.15*qz],[HB-14,y+hw*qy,-6+hw*qz]],fill:col,stroke:isA?'#fff':'#7d858c',sw:isA?2.5:1.2,close:1,glow:isA,idx:i,round:1});
+    knobPos[i]=[HB-52,y,-6];
+    add({circle:[-26,y,2],r:4,fill:'#d6dade',stroke:'#777'});
   }
   // Saiten
+  const strShapes=[];
   for(let i=5;i>=0;i--){
     const isA=i===act, col=isA?hot:(done[i]?GRN:'#a9b0b7'), sw=(isA?1.4:0.6)+(2.6-i*0.38);
-    add({pts:[[sx(i,0),0,3],[sx(i,YN),YN,4],[-17,kY(i),4]],stroke:col,sw,glow:isA,pulse:isA&&st==='pluck',idx:i,hit:1});
+    const o={pts:[[sx(i,0),0,3],[sx(i,YN),YN,4],[-26,kY(i),4]],stroke:col,sw,glow:isA,pulse:isA&&st==='pluck',hit:1,si:i};add(o);strShapes.push(o);
   }
   // Projektion + Einpassen
   const all=[];shapes.forEach(o=>{if(o.pts)o.pp=o.pts.map(p=>pr(...p));if(o.circle)o.pp=[pr(...o.circle)];o.pp.forEach(p=>all.push(p));});
   const xs=all.map(p=>p[0]),ys=all.map(p=>p[1]);
   const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
-  const BX=[96,316],BY=[30,560], k=Math.min((BX[1]-BX[0])/(x1-x0),(BY[1]-BY[0])/(y1-y0));
-  const ox=BX[0]+((BX[1]-BX[0])-(x1-x0)*k)/2, oy=BY[0]+((BY[1]-BY[0])-(y1-y0)*k)/2;
+  const BX=[96,318],BY=[20,720], k=Math.min((BX[1]-BX[0])/(x1-x0),(BY[1]-BY[0])/(y1-y0));
+  const ox=BX[0]+((BX[1]-BX[0])-(x1-x0)*k)/2, oy=BY[0];
   const S=p=>[ox+(p[0]-x0)*k, oy+(p[1]-y0)*k];
   const P2=p=>S(p).map(n=>n.toFixed(1)).join(',');
   let g='';
@@ -268,8 +268,9 @@ function drawHead(){
     const pts=o.pp.map(P2).join(' ');
     if(o.close)g+=`<polygon points="${pts}" fill="${o.fill}" ${o.stroke?`stroke="${o.stroke}" stroke-width="${o.sw}" stroke-linejoin="round"`:''} ${at}/>`;
     else g+=`<polyline points="${pts}" fill="none" stroke="${o.stroke}" stroke-width="${o.sw}" stroke-linejoin="round" stroke-linecap="round" ${at}/>`;
-    if(o.idx!==undefined)g+=o.close?`<polygon data-i="${o.idx}" points="${pts}" fill="transparent" stroke="transparent" stroke-width="8" style="cursor:pointer"/>`:`<polyline data-i="${o.idx}" points="${pts}" fill="none" stroke="transparent" stroke-width="12" style="cursor:pointer;pointer-events:stroke"/>`;
+    if(o.idx!==undefined)g+=o.close?`<polygon data-i="${o.idx}" points="${pts}" fill="transparent" stroke="transparent" stroke-width="16" style="cursor:pointer"/>`:`<polyline data-i="${o.idx}" points="${pts}" fill="none" stroke="transparent" stroke-width="18" style="cursor:pointer;pointer-events:stroke"/>`;
   });
+  window._str=strShapes.map(o=>({i:o.si,pts:o.pp.map(S)}));
   // Nummern unten
   for(let i=0;i<6;i++){const c=S(pr(sx(i,0),0,3)),isA=i===act;g+=`<text data-i="${i}" x="${c[0]}" y="${c[1]+16}" font-size="${isA?18:12}" font-weight="${isA?800:500}" fill="${isA?hot:'#f3f1ea'}" text-anchor="middle" style="cursor:pointer;paint-order:stroke" stroke="#1b2631" stroke-width="3">${6-i}</text>`;}
   // Lupe
@@ -279,11 +280,27 @@ function drawHead(){
   if(st==='up'||st==='down')g+=arcArrow(cx,iy,31,isCCW(st==='up'),'#ffffff',5);
   const lbl=st==='ok'?'✓ passt':st==='pluck'?'zupfen!':(st==='up'?'höher':'tiefer');
   g+=`<text x="${cx}" y="${iy+54}" font-size="15" font-weight="800" fill="${st==='pluck'?'#9fb0bf':(st==='ok'?GRN:'#fff')}" text-anchor="middle">${lbl}</text>`;
+  // Senkrechte Stimm-Anzeige
+  const gBot=oy+(y1-y0)*k, MX=24, MT=Math.max(iy+118,gBot-300), MB=gBot-20, MM=(MT+MB)/2;
+  g+=`<defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b5a"/><stop offset=".38" stop-color="#ffb648"/><stop offset=".46" stop-color="#3ecf7a"/><stop offset=".54" stop-color="#3ecf7a"/><stop offset=".62" stop-color="#ffb648"/><stop offset="1" stop-color="#ff6b5a"/></linearGradient></defs>`;
+  g+=`<text x="${MX+6}" y="${MT-22}" font-size="38" font-weight="800" fill="#f3f1ea" text-anchor="middle">${pretty(tuning.notes[act])}</text>`;
+  g+=`<rect x="${MX}" y="${MT}" width="12" height="${MB-MT}" rx="6" fill="url(#mg)"/>`;
+  g+=`<text x="${MX+20}" y="${MT+9}" font-size="11" fill="#9fb0bf">zu hoch</text><text x="${MX+20}" y="${MM+4}" font-size="11" fill="#9fb0bf">richtig</text><text x="${MX+20}" y="${MB}" font-size="11" fill="#9fb0bf">zu tief</text>`;
+  g+=`<g id="vneedle" data-mt="${MT}" data-mb="${MB}"><rect x="${MX-8}" y="-3" width="28" height="6" rx="3" fill="#fff"/></g>`;
   $("head").innerHTML=`<defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
   <style>.pulse{animation:p 1s ease-in-out infinite}@keyframes p{50%{opacity:.35}}</style>${g}`;
+  $("head").setAttribute("viewBox",`0 10 320 ${Math.ceil(gBot+20)}`);
+  setNeedle(lastC);
 }
 function pickString(i){if(i===idx)return;idx=i;startStep();}
-$("head").addEventListener("click",e=>{const t=e.target.closest("[data-i]");if(t)pickString(+t.dataset.i);});
+$("head").addEventListener("click",e=>{
+  const t=e.target.closest("[data-i]");if(t){pickString(+t.dataset.i);return;}
+  const svg=$("head"),pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;
+  const q=pt.matrixTransform(svg.getScreenCTM().inverse());
+  const dseg=(p,a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy;let u=l?((p.x-a[0])*dx+(p.y-a[1])*dy)/l:0;u=Math.max(0,Math.min(1,u));return Math.hypot(p.x-a[0]-u*dx,p.y-a[1]-u*dy);};
+  let best=null,bd=1e9;(window._str||[]).forEach(s=>{for(let j=0;j<s.pts.length-1;j++){const d=dseg(q,s.pts[j],s.pts[j+1]);if(d<bd){bd=d;best=s.i;}}});
+  if(best!==null&&bd<22)pickString(best);
+});
 function setG(status){if(gState.status!==status){gState.status=status;drawHead();}}
 
 // ---------- Stimmen ----------
@@ -309,7 +326,11 @@ function next(){
 }
 
 function setAdvice(t,sub,color){$("advice").innerHTML=t;$("advice").style.color=color;$("sub").textContent=sub||"";}
+let lastC=null;
 function setNeedle(c){
+  lastC=c; const vn=document.getElementById("vneedle");
+  if(vn){const mt=+vn.dataset.mt, mb=+vn.dataset.mb, v=c===null?0:Math.max(-50,Math.min(50,c));
+    vn.setAttribute("transform",`translate(0,${(mt+mb)/2 - v/50*(mb-mt)/2})`); vn.style.opacity=c===null?.3:1;}
   const n=$("needle");
   if(c===null){n.style.opacity=.25;n.style.left="50%";return;}
   n.style.opacity=1;
